@@ -1,17 +1,3 @@
-#!/usr/bin/env python
-#qpy:2
-#qpy:webapp:Feinstaubmessung
-#qpy://127.0.0.1:8181
-# coding: latin-1
-# Autor:   Ingmar Stapel, Android-Portierung durch https://github.com/optiprime
-# Datum:   20171231
-# Version:   1.1/android-1.2
-# Homepage:   https://www.byteyourlife.com/
-# Dieses Programm ermoeglicht es einen mobilen Feinstaubsensor
-# auf Basis eines Raspberry Pi Computers zu bauen.
-# Ueber Anregungen und Verbesserungsvorschlaege wuerde
-# ich mich sehr freuen.
-
 ##
 ## START DER KONFIGURATIONSOPTIONEN
 ##
@@ -22,27 +8,12 @@ android_platform = (os.environ.get("ANDROID_ROOT") != None)
 
 global dir_path
 
-if android_platform:
-	# Hier wird der Speicherort fuer die KML Dateien und die LOG Dateien
-	# festgelegt. Aendern Sie hier zentral den Speicherort ab.
-	storage = os.environ.get("EXTERNAL_STORAGE")
-	if storage == None:
-		storage = "/sdcard"
-	dir_path = storage + "/Feinstaubsensor/"
-	print("dir_path=%s" % dir_path)
-	sys.stdout.flush()
-	if not os.path.exists(dir_path):
-		os.mkdir(dir_path)
-
-	# Bluetooth MAC-Addresse des HC05/HC06-Moduls, welcher die Verbindung zum
-	# SDS011-Sensor herstellt.
-	sds011_bluetooth_device_id = '20:14:08:13:25:28'
-else:
 	# Hier wird der Speicherort fuer die KML Dateien und die LOG Dateien
 	# festgelegt. Aendern Sie hier zentral den Speicherort ab.
 	dir_path = "/home/pi/Feinstaubsensor/"
 
-	# USB Geraetepfad des Feinstaubsensors bitte hier setzen.
+	# USB Geraetepfad des Feinstaubsensors hier setzen.
+    #Gerätepfad noch ermitteln
 	sds011 = "/dev/ttyUSB0"
 
 ##
@@ -60,19 +31,11 @@ import threading
 
 from flask import Flask, jsonify, render_template, request
 
-if android_platform:
-	import select
-	import androidhelper
-	import base64
-	import logging
-else:
-	import serial
-	from gps import *
+
+import serial
+from gps import *
 
 app = Flask(__name__)
-if android_platform:
-	log = logging.getLogger('werkzeug')
-	log.setLevel(logging.ERROR)
 
 global session
 session = None
