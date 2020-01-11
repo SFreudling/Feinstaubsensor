@@ -4,17 +4,13 @@
 
 import sys
 import os
-android_platform = (os.environ.get("ANDROID_ROOT") != None)
 
 global dir_path
 
-	# Hier wird der Speicherort fuer die KML Dateien und die LOG Dateien
-	# festgelegt. Aendern Sie hier zentral den Speicherort ab.
-	dir_path = "/home/pi/Feinstaubsensor/"
+dir_path = "/home/pi/Feinstaubsensor/"
+sds011 = "/dev/ttyUSB0"
 
-	# USB Geraetepfad des Feinstaubsensors hier setzen.
-    #Gerätepfad noch ermitteln
-	sds011 = "/dev/ttyUSB0"
+
 
 ##
 ## ENDE DER KONFIGURATIONSOPTIONEN
@@ -68,18 +64,7 @@ error_msg = ""
 # Default Farbe fuer die Weg-Linie in der KML Datei.
 color = "#00000000"	
 	
-# Funktion fuer das Erfassen von Fehlermeldungen 
-# die waehrend dem Ablauf des Progammes entstehen koennen.
-def write_log(msg):
-	global dir_path
-	global error_msg
-	error_msg = msg
-	message = msg
-	fname = dir_path+"feinstaub_python_program.log"
-	with open(fname,'a+') as file:
-		file.write(str(message))
-		file.write("\n")
-		file.close()
+#Fehlermeldungen entfernt
 
 # Hier wird die Farbe fuer die Linie festgelegt.
 def color_selection(value):
@@ -100,10 +85,10 @@ def color_selection_rgb(value):
 	# red	
 	if 50 <= value:
 		color = "#F00014"
-	# orange
+
 	elif 25 <= value <= 49:
 		color = "#FF7814"
-	# green
+	
 	elif 0 <= value < 25:
 		color = "#2bef0d"		
 		
@@ -187,16 +172,10 @@ class GpsdStreamReader(threading.Thread):
 		global g_lat, g_lng, g_utc
 		threading.Thread.__init__(self)
 
-		if android_platform:
-			self.droid = androidhelper.Android()
-			self.droid.startLocating(5000, 10)
-			g_lat, g_lng = self.getGpsData()
-			g_utc = datetime.datetime.utcnow()
-		else:
-			session = gps(mode=WATCH_ENABLE)
-			g_utc = session.utc
-			g_lat = session.fix.latitude
-			g_lng = session.fix.longitude
+		session = gps(mode=WATCH_ENABLE)
+		g_utc = session.utc
+		g_lat = session.fix.latitude
+		g_lng = session.fix.longitude
 		self.current_value = None
 		# Der Thread wird ausgefuehrt
 		self.running = True
@@ -206,14 +185,11 @@ class GpsdStreamReader(threading.Thread):
 		global g_lat, g_lng, g_utc
 		while t_gps.running:
 			# Lese den naechsten Datensatz von GPSD
-			if android_platform:
-				g_lat, g_lng = self.getGpsData()
-				time.sleep(5)
-			else:
-				session.next()	  
-				g_utc = session.utc
-				g_lat = session.fix.latitude
-				g_lng = session.fix.longitude
+			
+			session.next()	  
+			g_utc = session.utc
+			g_lat = session.fix.latitude
+			g_lng = session.fix.longitude
 
 	def getGpsData(self):
 		lat = 0
@@ -244,15 +220,12 @@ class SDS001StreamReader(threading.Thread):
 		
 		threading.Thread.__init__(self)
 
-		if android_platform:
-			self.droid = androidhelper.Android()
-			self.connID = None
-		else:
-			# Hier wird auf den Serial-USB Konverter zugegriffen
-			try:
-				ser = serial.Serial(sds011, baudrate=9600, stopbits=1, parity="N", timeout=2)
-			except Exception, e:
-				write_log("\n HL-340 USB-Serial Adapter nicht verfuegbar. \n"+str(e))
+		
+			
+		try:
+			ser = serial.Serial(sds011, baudrate=9600, stopbits=1, parity="N", timeout=2)
+		except Exception, e:
+					write_log("\n HL-340 USB-Serial Adapter nicht verfuegbar. \n"+str(e))
 
 			try:
 				ser.flushInput()
