@@ -16,7 +16,7 @@ sds011 = "/dev/ttyUSB0"
 ## ENDE DER KONFIGURATIONSOPTIONEN
 ##
 
-import time
+import time2
 import string
 import struct
 
@@ -227,10 +227,10 @@ class SDS001StreamReader(threading.Thread):
 		except Exception, e:
 					write_log("\n HL-340 USB-Serial Adapter nicht verfuegbar. \n"+str(e))
 
-			try:
-				ser.flushInput()
-			except Exception, e:
-				write_log(e)
+		try:
+			ser.flushInput()
+		except Exception, e:
+				 write_log(e)
 		
 		self.current_value = None
 		# Der Thread wird ausgefuehrt
