@@ -464,32 +464,12 @@ def reboot():
 	ret_data = {"value": "Der Raspberry Pi wird neugestartet"}
 	return jsonify(ret_data)	
 
-if __name__ == '__main__':
-	if android_platform:
-		droid = androidhelper.Android()
-		droid.wakeLockAcquirePartial()
-	
-	# Start des Threads der den GPS Empfaenger ausliesst.
-	t_gps = GpsdStreamReader()
-	t_gps.start()
-	
-	# Start des Threads der den Feinstaubsensor ueber den USB-Serial
-	# Konverter ausliesst.
-	t_sds011 = SDS001StreamReader()
-	t_sds011.start()
-	
-	# Kurze Pause um zu warten bis die beiden Threads t_gps und 
-	# t_sds01 starten konnten.
-	time.sleep(3)
-	t_start_sensor = Thread(target=start_sensor)
-	t_start_sensor.start()
-	
-	if not android_platform:
+
 		# Initialisieren des Shutdown Threads.
-		t_shutdown = Thread(target=shutdownpi)
+	t_shutdown = Thread(target=shutdownpi)
 		
 		# Initialisieren des Reboot Threads.
-		t_reboot = Thread(target=rebootpi)		
+	t_reboot = Thread(target=rebootpi)		
 	
 	# Starten des Flask Web-Servers.
-	app.run(host='0.0.0.0', port=8181, debug=False)
+app.run(host='0.0.0.0', port=8181, debug=False)
