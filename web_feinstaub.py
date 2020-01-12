@@ -16,7 +16,7 @@ sds011 = "/dev/ttyUSB0"
 ## ENDE DER KONFIGURATIONSOPTIONEN
 ##
 
-import time2
+import time
 import string
 import struct
 
