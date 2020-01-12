@@ -1,16 +1,49 @@
+#!/usr/bin/env python
+#qpy:2
+#qpy:webapp:Feinstaubmessung
+#qpy://127.0.0.1:8181
+# coding: latin-1
+# Autor:   Ingmar Stapel, Android-Portierung durch https://github.com/optiprime
+# Datum:   20171231
+# Version:   1.1/android-1.2
+# Homepage:   https://www.byteyourlife.com/
+# Dieses Programm ermoeglicht es einen mobilen Feinstaubsensor
+# auf Basis eines Raspberry Pi Computers zu bauen.
+# Ueber Anregungen und Verbesserungsvorschlaege wuerde
+# ich mich sehr freuen.
+
 ##
 ## START DER KONFIGURATIONSOPTIONEN
 ##
 
 import sys
 import os
+android_platform = (os.environ.get("ANDROID_ROOT") != None)
 
 global dir_path
 
-dir_path = "/home/pi/Feinstaubsensor/"
-sds011 = "/dev/ttyUSB0"
+if android_platform:
+	# Hier wird der Speicherort fuer die KML Dateien und die LOG Dateien
+	# festgelegt. Aendern Sie hier zentral den Speicherort ab.
+	storage = os.environ.get("EXTERNAL_STORAGE")
+	if storage == None:
+		storage = "/sdcard"
+	dir_path = storage + "/Feinstaubsensor/"
+	print("dir_path=%s" % dir_path)
+	sys.stdout.flush()
+	if not os.path.exists(dir_path):
+		os.mkdir(dir_path)
 
+	# Bluetooth MAC-Addresse des HC05/HC06-Moduls, welcher die Verbindung zum
+	# SDS011-Sensor herstellt.
+	sds011_bluetooth_device_id = '20:14:08:13:25:28'
+else:
+	# Hier wird der Speicherort fuer die KML Dateien und die LOG Dateien
+	# festgelegt. Aendern Sie hier zentral den Speicherort ab.
+	dir_path = "/home/pi/Feinstaubsensor/"
 
+	# USB Geraetepfad des Feinstaubsensors bitte hier setzen.
+	sds011 = "/dev/ttyUSB0"
 
 ##
 ## ENDE DER KONFIGURATIONSOPTIONEN
@@ -27,11 +60,19 @@ import threading
 
 from flask import Flask, jsonify, render_template, request
 
-
-import serial
-from gps import *
+if android_platform:
+	import select
+	import androidhelper
+	import base64
+	import logging
+else:
+	import serial
+	from gps import *
 
 app = Flask(__name__)
+if android_platform:
+	log = logging.getLogger('werkzeug')
+	log.setLevel(logging.ERROR)
 
 global session
 session = None
@@ -64,7 +105,18 @@ error_msg = ""
 # Default Farbe fuer die Weg-Linie in der KML Datei.
 color = "#00000000"	
 	
-#Fehlermeldungen entfernt
+# Funktion fuer das Erfassen von Fehlermeldungen 
+# die waehrend dem Ablauf des Progammes entstehen koennen.
+def write_log(msg):
+	global dir_path
+	global error_msg
+	error_msg = msg
+	message = msg
+	fname = dir_path+"feinstaub_python_program.log"
+	with open(fname,'a+') as file:
+		file.write(str(message))
+		file.write("\n")
+		file.close()
 
 # Hier wird die Farbe fuer die Linie festgelegt.
 def color_selection(value):
@@ -85,10 +137,10 @@ def color_selection_rgb(value):
 	# red	
 	if 50 <= value:
 		color = "#F00014"
-
+	# orange
 	elif 25 <= value <= 49:
 		color = "#FF7814"
-	
+	# green
 	elif 0 <= value < 25:
 		color = "#2bef0d"		
 		
@@ -172,10 +224,16 @@ class GpsdStreamReader(threading.Thread):
 		global g_lat, g_lng, g_utc
 		threading.Thread.__init__(self)
 
-		session = gps(mode=WATCH_ENABLE)
-		g_utc = session.utc
-		g_lat = session.fix.latitude
-		g_lng = session.fix.longitude
+		if android_platform:
+			self.droid = androidhelper.Android()
+			self.droid.startLocating(5000, 10)
+			g_lat, g_lng = self.getGpsData()
+			g_utc = datetime.datetime.utcnow()
+		else:
+			session = gps(mode=WATCH_ENABLE)
+			g_utc = session.utc
+			g_lat = session.fix.latitude
+			g_lng = session.fix.longitude
 		self.current_value = None
 		# Der Thread wird ausgefuehrt
 		self.running = True
@@ -185,11 +243,14 @@ class GpsdStreamReader(threading.Thread):
 		global g_lat, g_lng, g_utc
 		while t_gps.running:
 			# Lese den naechsten Datensatz von GPSD
-			
-			session.next()	  
-			g_utc = session.utc
-			g_lat = session.fix.latitude
-			g_lng = session.fix.longitude
+			if android_platform:
+				g_lat, g_lng = self.getGpsData()
+				time.sleep(5)
+			else:
+				session.next()	  
+				g_utc = session.utc
+				g_lat = session.fix.latitude
+				g_lng = session.fix.longitude
 
 	def getGpsData(self):
 		lat = 0
@@ -220,17 +281,20 @@ class SDS001StreamReader(threading.Thread):
 		
 		threading.Thread.__init__(self)
 
-		
-			
-		try:
-			ser = serial.Serial(sds011, baudrate=9600, stopbits=1, parity="N", timeout=2)
-		except Exception, e:
-					write_log("\n HL-340 USB-Serial Adapter nicht verfuegbar. \n"+str(e))
+		if android_platform:
+			self.droid = androidhelper.Android()
+			self.connID = None
+		else:
+			# Hier wird auf den Serial-USB Konverter zugegriffen
+			try:
+				ser = serial.Serial(sds011, baudrate=9600, stopbits=1, parity="N", timeout=2)
+			except Exception, e:
+				write_log("\n HL-340 USB-Serial Adapter nicht verfuegbar. \n"+str(e))
 
-		try:
-			ser.flushInput()
-		except Exception, e:
-				 write_log(e)
+			try:
+				ser.flushInput()
+			except Exception, e:
+				write_log(e)
 		
 		self.current_value = None
 		# Der Thread wird ausgefuehrt
@@ -402,7 +466,6 @@ def rebootpi():
 # Hier folgt der Abschnitt fuer den Flask Web-Server
 @app.route('/')
 def index():
-	
 	return render_template('index.html')
  
 @app.route('/start/', methods=['GET'])
@@ -462,12 +525,32 @@ def reboot():
 	ret_data = {"value": "Der Raspberry Pi wird neugestartet"}
 	return jsonify(ret_data)	
 
-
+if __name__ == '__main__':
+	if android_platform:
+		droid = androidhelper.Android()
+		droid.wakeLockAcquirePartial()
+	
+	# Start des Threads der den GPS Empfaenger ausliesst.
+	t_gps = GpsdStreamReader()
+	t_gps.start()
+	
+	# Start des Threads der den Feinstaubsensor ueber den USB-Serial
+	# Konverter ausliesst.
+	t_sds011 = SDS001StreamReader()
+	t_sds011.start()
+	
+	# Kurze Pause um zu warten bis die beiden Threads t_gps und 
+	# t_sds01 starten konnten.
+	time.sleep(3)
+	t_start_sensor = Thread(target=start_sensor)
+	t_start_sensor.start()
+	
+	if not android_platform:
 		# Initialisieren des Shutdown Threads.
-	t_shutdown = Thread(target=shutdownpi)
+		t_shutdown = Thread(target=shutdownpi)
 		
 		# Initialisieren des Reboot Threads.
-	t_reboot = Thread(target=rebootpi)		
+		t_reboot = Thread(target=rebootpi)		
 	
 	# Starten des Flask Web-Servers.
-app.run(host='0.0.0.0', port=8181, debug=False)
+	app.run(host='0.0.0.0', port=8181, debug=False)
