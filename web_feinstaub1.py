@@ -148,7 +148,7 @@ def color_selection_rgb(value):
 
 # Diese Funktion schreibt die CSV Datei mit den Feinstaubwerten und
 # den GPS Koordinaten.
-def write_csv(pm_25, pm_10, value_lat, value_lon, value_time, value_fname):
+def write_csv(pm_25, pm_10, value_time, value_fname):
 	pm_25 = string.replace(pm_25, ".", ",")
 	pm_10 = string.replace(pm_10, ".", ",")
 	lat = value_lat
@@ -156,7 +156,7 @@ def write_csv(pm_25, pm_10, value_lat, value_lon, value_time, value_fname):
 	time = value_time
 	fname = value_fname
 	with open(fname,'a') as file:
-		line = ""+pm_25+";"+pm_10+";"+lat+";"+lon+";"+time
+		line = ""+pm_25+";"+pm_10+";"+time+""
 		file.write(line)
 		file.write('\n')
 		file.close()
